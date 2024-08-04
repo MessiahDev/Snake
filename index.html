@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        canvas {
+            border: 1px solid #444;
+            background-color: #f0f0f0;
+            display: block;
+            margin: auto;
+        }
+
+        .restartButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+
+</head>
+<body>
+    
+    <div class="container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <button class="restartButton">Restart</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas")
+        const ctx = canvas.getContext("2d")
+
+        const blockSize = 20
+        const widthInblocks = canvas.width / blockSize
+        const heightInblocks = canvas.height / blockSize
+
+        let score = 0
+        let snake;
+        let food;
+        let gameInterval;
+        let gameSpeed = 200
+
+        // Snake Contructor
+        function Snake() {
+            this.segments = [
+                { x: 6, y: 4 },
+                { x: 5, y: 4 },
+                { x: 4, y: 4 }
+            ];
+            this.direction = "right"
+        }
+
+        Snake.prototype.draw = function() {
+            for (let i = 0; i < this.segments.length; i++) {
+                ctx.fillStyle = (i === 0) ? "green" : "lightgreen"
+                ctx.fillRect(
+                    this.segments[i].x * blockSize,
+                    this.segments[i].y * blockSize,
+                    blockSize,
+                    blockSize
+                );
+                ctx.strokeStyle = "darkgreen"
+                ctx.strokeRect(
+                    this.segments[i].x * blockSize,
+                    this.segments[i].y * blockSize,
+                    blockSize,
+                    blockSize
+                );
+            }
+        };
+
+        Snake.prototype.move = function() {
+            const head = this.segments[0]
+            let newHead;
+
+            switch (this.direction) {
+                case "right":
+                    newHead = { x: head.x + 1, y: head.y}
+                    break;
+                case "left":
+                    newHead = { x: head.x - 1, y: head.y}
+                    break;
+                case "up":
+                    newHead = { x: head.x, y: head.y - 1}
+                    break;
+                case "down":
+                    newHead = { x: head.x, y: head.y + 1}
+                    break;
+            }
+
+            this.segments.unshift(newHead)
+
+            if (newHead.x === food.position.x && newHead.y === food.position.y) {
+                score++
+                food.move()
+
+                if (score % 5 === 0) {
+                    increaseSpeed()
+                }
+            } else {
+                this.segments.pop()
+            }
+        };
+
+        Snake.prototype.checkCollision = function() {
+            const head = this.segments[0]
+            const wallCollision =
+                head.x < 0 || head.x >= widthInblocks ||
+                head.y < 0 || head.y >= heightInblocks;
+
+            let selfCollision = false
+
+            for (let i = 1; i < this.segments.length; i++) {
+                if (head.x === this.segments[i].x && head.y === this.segments[i].y) {
+                    selfCollision = true
+                    break;
+                }
+            }
+
+            return wallCollision || selfCollision
+        };
+
+        Snake.prototype.setDirection = function(newDirection) {
+            if (this.direction === "up" && newDirection === "down") return
+            if (this.direction === "down" && newDirection === "up") return
+            if (this.direction === "right" && newDirection === "left") return
+            if (this.direction === "left" && newDirection === "right") return
+
+            this.direction = newDirection
+        };
+
+        // Food Constructor
+
+        function Food() {
+            this.position = {
+                x: Math.floor(Math.random() * widthInblocks),
+                y: Math.floor(Math.random() * heightInblocks)
+            }
+        }
+
+        Food.prototype.draw = function() {
+            ctx.fillStyle = "red"
+            ctx.fillRect(
+                this.position.x * blockSize,
+                this.position.y * blockSize,
+                blockSize,
+                blockSize
+            );
+        };
+
+        Food.prototype.move = function() {
+            this.position = {
+                x: Math.floor(Math.random() * widthInblocks),
+                y: Math.floor(Math.random() * heightInblocks)
+            }
+        };
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            snake.move()
+            snake.draw()
+            food.draw()
+
+            drawScore()
+
+            if (snake.checkCollision()) {
+                gameOver()
+                return;
+            }
+        }
+
+        function drawScore() {
+            ctx.font = "20px Arial"
+            ctx.fillStyle = "black"
+            ctx.textAlign = "left"
+            ctx.textBaseline = "top"
+            ctx.fillText("Score: " + score, blockSize, blockSize)
+        }
+
+        function gameOver() {
+            ctx.font = "60px Arial"
+            ctx.fillStyle = "black"
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2)
+            clearInterval(gameInterval)
+        }
+
+        function increaseSpeed() {
+            gameSpeed -= 10
+            
+            clearInterval(gameInterval)
+            gameInterval = setInterval(gameLoop, gameSpeed)
+        }
+
+        function restart() {
+            score = 0
+            gameSpeed = 200
+            snake = new Snake()
+            food = new Food()
+
+            if (gameInterval) {
+                clearInterval(gameInterval)
+            }
+
+            gameInterval = setInterval(gameLoop, gameSpeed)
+        }
+
+        document.addEventListener("keydown", function(event) {
+            const newDirection = {
+                37: "left",
+                38: "up",
+                39: "right",
+                40: "down",
+            }[event.keyCode];
+
+            if (newDirection !== undefined) {
+                snake.setDirection(newDirection)
+            }
+        });
+
+        document.querySelector(".restartButton").addEventListener("click", function() {
+            restart()
+        })
+
+        restart()
+
+    </script>
+    
+</body>
+</html>
